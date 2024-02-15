@@ -68,6 +68,8 @@ def createWindow(parent, settings):
            
     class MyApplicationContext(ApplicationContext):
         """This class is shared to all the silx view application."""
+        def __init__(self, parent, settings=None):
+            super(MyApplicationContext, self).__init__(parent, settings)
     
         def findPrintToolBar(self, plot):
             # FIXME: It would be better to use the Qt API
@@ -86,6 +88,43 @@ def createWindow(parent, settings):
 
     class MyViewer(Viewer):
         
+        def __init__(self, parent=None, settings=None):
+            super(MyViewer, self).__init__(parent=None, settings=None)
+
+        def plotPv(self):
+            print("Keep working here")
+
+        def createActions(self):
+            super(MyViewer, self).createActions()
+            action = qt.QAction("&Plot", self)
+            action.setStatusTip("Plot PV")
+            action.triggered.connect(self.plotPv)
+            self._plotPvAction = action
+
+        def createMenus(self):
+            fileMenu = self.menuBar().addMenu("&File")
+            fileMenu.addAction(self._openAction)
+            fileMenu.addMenu(self._openRecentMenu)
+            fileMenu.addAction(self._closeAllAction)
+            fileMenu.addSeparator()
+            fileMenu.addAction(self._exitAction)
+            fileMenu.aboutToShow.connect(self._Viewer__updateFileMenu)
+            
+            pvMenu = self.menuBar().addMenu("&Plot PV")
+            pvMenu.addAction(self._plotPvAction)
+
+            optionMenu = self.menuBar().addMenu("&Options")
+            optionMenu.addMenu(self._plotImageOrientationMenu)
+            optionMenu.addMenu(self._plotBackendMenu)
+            optionMenu.aboutToShow.connect(self._Viewer__updateOptionMenu)
+
+            viewMenu = self.menuBar().addMenu("&Views")
+            viewMenu.addAction(self._displayCustomNxdataWindow)
+
+            helpMenu = self.menuBar().addMenu("&Help")
+            helpMenu.addAction(self._aboutAction)
+            helpMenu.addAction(self._documentationAction)
+
         def createApplicationContext(self, settings):
             return MyApplicationContext(self, settings)
 
