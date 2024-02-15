@@ -4,13 +4,15 @@ import sys
 import numpy
 
 from silx.gui import qt
+from dotenv import load_dotenv
+from os import getenv
 
 def createWindow(parent, settings):
     # Local import to avoid early import (like h5py)
     #SOme libraries have to be configured first properly
     from silx.gui.plot.actions import PlotAction
+    from silx.gui import qt
     from silx.app.view.Viewer import Viewer
-    from silx.gui.utils import glutils
     from silx.app.view.ApplicationContext import ApplicationContext
         
     class RestoreAction(PlotAction):
@@ -33,7 +35,6 @@ def createWindow(parent, settings):
             Variable to tell if its supposed to restore each new
             image.
             '''
-            print(checked)
             self.restore = checked
             self.__restore()
             
@@ -84,13 +85,6 @@ def createWindow(parent, settings):
                 toolBar.addAction(action)
 
     class MyViewer(Viewer):
-        # def __init__(self, parent=None, settings=None):
-        #     super(MyViewer, self).__init__()
-            
-        #     self.myMenus()
-            
-        # def myMenus(self):
-        #     pv_plotter = self.menuBar().addMenu("&Get from PV")
         
         def createApplicationContext(self, settings):
             return MyApplicationContext(self, settings)
