@@ -12,6 +12,14 @@ import epics
 
 
 class RestoreAction(PlotAction):
+    '''
+    WIP: Action to use SSCPimega to restore 
+    image according with PiMega model.
+
+    Its still missing the actual usage of SSCPimega.
+    For now it just sums a value to each pixel of the image.
+    '''
+
     def __init__(self, plot, parent=None):
 
         restore = qt.QIcon("./matrix.png")
@@ -28,6 +36,8 @@ class RestoreAction(PlotAction):
 
     def __store_variable(self, checked):
         '''
+        Is the button clicked? If yes, restore each new image.
+
         Variable to tell if its supposed to restore each new
         image.
         '''
@@ -39,7 +49,7 @@ class RestoreAction(PlotAction):
 
     def __restore(self):
         '''
-        Restore current image.
+        Apply SSCPimega restoration to image.
         '''
 
         activeImage = self.plot.getActiveImage()
@@ -64,6 +74,11 @@ class RestoreAction(PlotAction):
 
 
 class PVPlotter(Plot2D):
+    '''
+    Class to get PV info and plot ArrayData image.
+    It uses RestoreAction to apply SSCPimega restoration to image
+    if desired.
+    '''
 
     def __init__(self):
         super(PVPlotter, self).__init__()
@@ -71,6 +86,9 @@ class PVPlotter(Plot2D):
         self.create_pvs()
 
     def create_pvs(self):
+        '''
+        Instantiate PV objects as class parameters.
+        '''
 
         self.array_pv = epics.PV(getenv("EPICS_ARRAY_PV"), auto_monitor=True)
         self.width_pv = epics.PV(
@@ -96,6 +114,9 @@ class PVPlotter(Plot2D):
             self.width_val = value
 
     def pv_replot(self, *args, **kwargs):
+        '''
+        Upon new PV value, redo plot.
+        '''
         if kwargs["value"] is not None:
 
             data = numpy.reshape(
