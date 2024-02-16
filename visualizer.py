@@ -85,6 +85,13 @@ class PVPlotter(Plot2D):
 
         self.create_pvs()
 
+        self.setWindowTitle(self.array_pv.pvname)
+        action = RestoreAction(self, self)
+        self.profile.addAction(action)
+
+        self.array_pv.add_callback(self.pv_replot)
+        self.pv_replot(value=self.array_pv.value)
+
     def create_pvs(self):
         '''
         Instantiate PV objects as class parameters.
@@ -98,14 +105,17 @@ class PVPlotter(Plot2D):
         self.width_val = self.width_pv.value
         self.height_val = self.height_pv.value
 
-        self.setWindowTitle(self.array_pv.pvname)
-        action = RestoreAction(self, self)
-        self.profile.addAction(action)
-
-        self.array_pv.add_callback(self.pv_replot)
-        self.pv_replot(value=self.array_pv.value)
-
     def update_dimensions(self, *args, **kwargs):
+        '''
+        Unfortunately needed.
+
+        For some reason, if pv_replot tries to pv.get any
+        pv object it times out, so for now this is what updates
+        array dimensions in any eventual change.
+
+        If array dimensions start changing often enough that this 
+        generates sync problems, this obiously should be changed.
+        '''
         pvname = kwargs["pvname"]
         value = kwargs["value"]
         if pvname == self.height_pv.pvname:
