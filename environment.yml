@@ -5,10 +5,14 @@ dependencies:
   - python
   - pip
   - numpy=1.25
+  - matplotlib
+  - scikit-image
+  - sharedarray
   - scipy=1.11
   - pkgconfig=1.5
   - silx=1.1
   - h5py=3.9.0
   - pyepics
+  - python-dotenv
   - pip:
-    - python-dotenv
+    - git+https://gitlab.cnpem.br/GCC/ssc-pimega
