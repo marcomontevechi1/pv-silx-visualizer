@@ -4,6 +4,7 @@ import sys
 import numpy
 from os import getenv
 from copy import deepcopy
+from sscPimega import pi450D
 
 from silx.gui.plot import Plot2D
 from silx.gui.plot.actions import PlotAction
@@ -11,10 +12,13 @@ from silx.gui import qt
 from dotenv import load_dotenv
 import epics
 
+
 def global_transform(data):
     data_out = deepcopy(data)
-    data_out+=500
+    data_out = pi450D.view(data, -1)
+
     return data_out
+
 
 class RestoreActionFile(PlotAction):
     '''
@@ -38,24 +42,24 @@ class RestoreActionFile(PlotAction):
         self.restore = False
         self.prev_data = None
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
-        
+
     def keep_coherence(self):
         '''
         Make sure previous data keeps coherent
         when different image is selected in file
         '''
-        
+
         self.plot.sigActiveImageChanged.disconnect(self.keep_coherence)
-        
+
         activeImage = self.plot.getActiveImage()
         if activeImage is not None:
             self.plot.prev_data = activeImage.getData()
-        
+
         if self.restore:
             new_data = global_transform(self.plot.prev_data)
             if new_data is not None:
                 activeImage.setData(new_data)
-            
+
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
     def __store_variable(self, checked):
@@ -65,12 +69,12 @@ class RestoreActionFile(PlotAction):
         Variable to tell if its supposed to restore each new
         image.
         '''
-        
+
         self.plot.sigActiveImageChanged.disconnect(self.keep_coherence)
-        
+
         self.restore = checked
         activeImage = self.plot.getActiveImage()
-        
+
         if not checked:
             if self.plot.prev_data is not None:
                 activeImage.setData(self.plot.prev_data)
@@ -79,8 +83,9 @@ class RestoreActionFile(PlotAction):
                 self.plot.prev_data = activeImage.getData()
                 new_data = global_transform(self.plot.prev_data)
                 activeImage.setData(new_data)
-                
+
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
+
 
 class RestoreActionPV(PlotAction):
     '''
@@ -113,7 +118,7 @@ class RestoreActionPV(PlotAction):
         '''
         self.restore = checked
         activeImage = self.plot.getActiveImage()
-        
+
         if not checked:
             if self.plot.prev_data is not None:
                 self.plot.addImage(self.plot.prev_data)
@@ -122,6 +127,7 @@ class RestoreActionPV(PlotAction):
                 self.plot.prev_data = activeImage.getData()
                 new_data = global_transform(self.plot.prev_data)
                 self.plot.addImage(new_data)
+
 
 class PVPlotter(Plot2D):
     '''
@@ -182,11 +188,12 @@ class PVPlotter(Plot2D):
             data = numpy.reshape(
                 kwargs["value"], (self.height_val, self.width_val))
             self.prev_data = data
-            
+
             if self.action.restore:
                 data = global_transform(data)
-            
+
             self.addImage(data)
+
 
 def createWindow(parent, settings):
     # Local import to avoid early import (like h5py)
@@ -203,7 +210,7 @@ def createWindow(parent, settings):
         def findPrintToolBar(self, plot):
             # FIXME: It would be better to use the Qt API
             return plot._outputToolBar
-            
+
         def viewWidgetCreated(self, view, widget):
             """Called when the widget of the view was created.
 
@@ -213,8 +220,8 @@ def createWindow(parent, settings):
             if isinstance(widget, Plot2D):
                 toolBar = self.findPrintToolBar(widget)
                 restore_action = RestoreActionFile(widget, widget)
-                toolBar.addAction(restore_action)    
-        
+                toolBar.addAction(restore_action)
+
     class MyViewer(Viewer):
 
         def __init__(self, parent=None, settings=None):
@@ -274,7 +281,6 @@ def createWindow(parent, settings):
 
         def createApplicationContext(self, settings):
             return MyApplicationContext(self, settings)
-
 
     window = MyViewer(parent=parent, settings=settings)
     window.setWindowTitle(window.windowTitle() + " [custom]")
