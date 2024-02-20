@@ -55,10 +55,10 @@ class RestoreActionFile(PlotAction):
         if activeImage is not None:
             self.plot.prev_data = activeImage.getData()
 
-        if self.restore:
-            new_data = global_transform(self.plot.prev_data)
-            if new_data is not None:
-                activeImage.setData(new_data)
+            if self.restore:
+                new_data = global_transform(self.plot.prev_data)
+                if new_data is not None:
+                    activeImage.setData(new_data)
 
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
