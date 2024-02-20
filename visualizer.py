@@ -19,7 +19,6 @@ def global_transform(data):
 
     return data_out
 
-
 class RestoreActionFile(PlotAction):
     '''
     WIP: Action to use SSCPimega to restore 
@@ -40,7 +39,8 @@ class RestoreActionFile(PlotAction):
             checkable=True, parent=parent)
 
         self.restore = False
-        self.prev_data = None
+        self.plot.prev_data = None
+        self.original_shape = None # To check if image is already restored
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
     def keep_coherence(self):
@@ -52,13 +52,13 @@ class RestoreActionFile(PlotAction):
         self.plot.sigActiveImageChanged.disconnect(self.keep_coherence)
 
         activeImage = self.plot.getActiveImage()
-        if activeImage is not None:
+        if activeImage is not None and activeImage.getData().shape == self.original_shape:
             self.plot.prev_data = activeImage.getData()
 
-        if self.restore:
-            new_data = global_transform(self.plot.prev_data)
-            if new_data is not None:
-                activeImage.setData(new_data)
+            if self.restore:
+                new_data = global_transform(self.plot.prev_data)
+                if new_data is not None:
+                    activeImage.setData(new_data)
 
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
@@ -75,14 +75,20 @@ class RestoreActionFile(PlotAction):
         self.restore = checked
         activeImage = self.plot.getActiveImage()
 
+        if self.original_shape is None:
+            self.original_shape = activeImage.getData().shape
+
         if not checked:
             if self.plot.prev_data is not None:
                 activeImage.setData(self.plot.prev_data)
         else:
             if activeImage is not None:
-                self.plot.prev_data = activeImage.getData()
-                new_data = global_transform(self.plot.prev_data)
-                activeImage.setData(new_data)
+                nowData = activeImage.getData()
+                
+                if nowData.shape == self.original_shape:
+                    self.plot.prev_data = activeImage.getData()
+                    new_data = global_transform(self.plot.prev_data)
+                    activeImage.setData(new_data)
 
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
