@@ -2,7 +2,7 @@
 
 import sys
 import numpy
-from os import getenv
+from os import getenv, path
 from copy import deepcopy
 from sscPimega import pi450D
 
@@ -19,6 +19,7 @@ def global_transform(data):
 
     return data_out
 
+
 class RestoreActionFile(PlotAction):
     '''
     WIP: Action to use SSCPimega to restore 
@@ -30,7 +31,8 @@ class RestoreActionFile(PlotAction):
 
     def __init__(self, plot, parent=None):
 
-        restore = qt.QIcon("./matrix.png")
+        restore = qt.QIcon(path.join(path.dirname(path.realpath(__file__)),
+                                     "./matrix.png"))
 
         super(RestoreActionFile, self).__init__(
             plot, icon=restore, text='Restore',
@@ -40,7 +42,7 @@ class RestoreActionFile(PlotAction):
 
         self.restore = False
         self.plot.prev_data = None
-        self.original_shape = None # To check if image is already restored
+        self.original_shape = None  # To check if image is already restored
         self.plot.sigActiveImageChanged.connect(self.keep_coherence)
 
     def keep_coherence(self):
@@ -84,7 +86,7 @@ class RestoreActionFile(PlotAction):
         else:
             if activeImage is not None:
                 nowData = activeImage.getData()
-                
+
                 if nowData.shape == self.original_shape:
                     self.plot.prev_data = activeImage.getData()
                     new_data = global_transform(self.plot.prev_data)
