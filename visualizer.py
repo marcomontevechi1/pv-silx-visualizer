@@ -106,7 +106,8 @@ class RestoreActionPV(PlotAction):
 
     def __init__(self, plot, parent=None):
 
-        restore = qt.QIcon("./matrix.png")
+        restore = qt.QIcon(path.join(path.dirname(path.realpath(__file__)),
+                                     "./matrix.png"))
 
         super(RestoreActionPV, self).__init__(
             plot, icon=restore, text='Restore',
