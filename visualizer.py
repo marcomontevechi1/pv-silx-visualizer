@@ -12,6 +12,12 @@ from silx.gui import qt
 from dotenv import load_dotenv
 import epics
 
+# Sometimes the following imports need to be local
+# to avoid early imports. In this application this wasnt needed
+# until now.
+from silx.app.view.Viewer import Viewer
+from silx.app.view.ApplicationContext import ApplicationContext
+from silx.app.view import main as silx_view_main
 
 def global_transform(data):
     data_out = deepcopy(data)
@@ -205,10 +211,6 @@ class PVPlotter(Plot2D):
 
 
 def createWindow(parent, settings):
-    # Local import to avoid early import (like h5py)
-    # SOme libraries have to be configured first properly
-    from silx.app.view.Viewer import Viewer
-    from silx.app.view.ApplicationContext import ApplicationContext
 
     class MyApplicationContext(ApplicationContext):
         """This class is shared to all the silx view application."""
@@ -297,7 +299,6 @@ def createWindow(parent, settings):
 
 
 def main(args):
-    from silx.app.view import main as silx_view_main
     # Monkey patch the main window creation
     silx_view_main.createWindow = createWindow
     # Use the default launcher
