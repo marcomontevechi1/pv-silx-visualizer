@@ -19,6 +19,7 @@ from silx.app.view.Viewer import Viewer
 from silx.app.view.ApplicationContext import ApplicationContext
 from silx.app.view import main as silx_view_main
 
+
 def global_transform(data):
     data_out = deepcopy(data)
     data_out = pi450D.view(data, -1)
@@ -210,88 +211,90 @@ class PVPlotter(Plot2D):
             self.addImage(data)
 
 
+class MyApplicationContext(ApplicationContext):
+    """This class is shared to all the silx view application."""
+
+    def __init__(self, parent, settings=None):
+        super(MyApplicationContext, self).__init__(parent, settings)
+
+    def findPrintToolBar(self, plot):
+        # FIXME: It would be better to use the Qt API
+        return plot._outputToolBar
+
+    def viewWidgetCreated(self, view, widget):
+        """Called when the widget of the view was created.
+
+        So we can custom it.
+        """
+        from silx.gui.plot import Plot2D
+        if isinstance(widget, Plot2D):
+            toolBar = self.findPrintToolBar(widget)
+            restore_action = RestoreActionFile(widget, widget)
+            toolBar.addAction(restore_action)
+
+
+class MyViewer(Viewer):
+
+    def __init__(self, parent=None, settings=None):
+        super(MyViewer, self).__init__(parent=None, settings=None)
+
+    def plotPv(self):
+
+        load_dotenv()
+
+        if None in [getenv("EPICS_ARRAY_PV"),
+                    getenv("EPICS_ARRAY_WIDTH"),
+                    getenv("EPICS_ARRAY_HEIGHT")]:
+            msg = qt.QMessageBox()
+            msg_ = "Array PVs are misconfigured. Correct .env file or set the"
+            msg_ += " environment variables before running this application."
+            msg_ += " Desired variables are EPICS_ARRAY_PV, EPICS_ARRAY_WIDTH"
+            msg_ += " and EPICS_ARRAY_HEGHT."
+            msg.setText(msg_)
+            msg.setIcon(qt.QMessageBox.Critical)
+            msg.setWindowTitle("PVs not defined.")
+            msg.exec()
+            return
+
+        self.PvPlot = PVPlotter()
+        self.PvPlot.show()
+
+    def createActions(self):
+        super(MyViewer, self).createActions()
+        action = qt.QAction("&Plot", self)
+        action.setStatusTip("Plot PV")
+        action.triggered.connect(self.plotPv)
+        self._plotPvAction = action
+
+    def createMenus(self):
+        fileMenu = self.menuBar().addMenu("&File")
+        fileMenu.addAction(self._openAction)
+        fileMenu.addMenu(self._openRecentMenu)
+        fileMenu.addAction(self._closeAllAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(self._exitAction)
+        fileMenu.aboutToShow.connect(self._Viewer__updateFileMenu)
+
+        pvMenu = self.menuBar().addMenu("&Plot PV")
+        pvMenu.addAction(self._plotPvAction)
+
+        optionMenu = self.menuBar().addMenu("&Options")
+        optionMenu.addMenu(self._plotImageOrientationMenu)
+        optionMenu.addMenu(self._plotBackendMenu)
+        optionMenu.aboutToShow.connect(self._Viewer__updateOptionMenu)
+
+        viewMenu = self.menuBar().addMenu("&Views")
+        viewMenu.addAction(self._displayCustomNxdataWindow)
+
+        helpMenu = self.menuBar().addMenu("&Help")
+        helpMenu.addAction(self._aboutAction)
+        helpMenu.addAction(self._documentationAction)
+
+    def createApplicationContext(self, settings):
+        return MyApplicationContext(self, settings)
+
+
 def createWindow(parent, settings):
-
-    class MyApplicationContext(ApplicationContext):
-        """This class is shared to all the silx view application."""
-
-        def __init__(self, parent, settings=None):
-            super(MyApplicationContext, self).__init__(parent, settings)
-
-        def findPrintToolBar(self, plot):
-            # FIXME: It would be better to use the Qt API
-            return plot._outputToolBar
-
-        def viewWidgetCreated(self, view, widget):
-            """Called when the widget of the view was created.
-
-            So we can custom it.
-            """
-            from silx.gui.plot import Plot2D
-            if isinstance(widget, Plot2D):
-                toolBar = self.findPrintToolBar(widget)
-                restore_action = RestoreActionFile(widget, widget)
-                toolBar.addAction(restore_action)
-
-    class MyViewer(Viewer):
-
-        def __init__(self, parent=None, settings=None):
-            super(MyViewer, self).__init__(parent=None, settings=None)
-
-        def plotPv(self):
-
-            load_dotenv()
-
-            if None in [getenv("EPICS_ARRAY_PV"),
-                        getenv("EPICS_ARRAY_WIDTH"),
-                        getenv("EPICS_ARRAY_HEIGHT")]:
-                msg = qt.QMessageBox()
-                msg_ = "Array PVs are misconfigured. Correct .env file or set the"
-                msg_ += " environment variables before running this application."
-                msg_ += " Desired variables are EPICS_ARRAY_PV, EPICS_ARRAY_WIDTH"
-                msg_ += " and EPICS_ARRAY_HEGHT."
-                msg.setText(msg_)
-                msg.setIcon(qt.QMessageBox.Critical)
-                msg.setWindowTitle("PVs not defined.")
-                msg.exec()
-                return
-
-            self.PvPlot = PVPlotter()
-            self.PvPlot.show()
-
-        def createActions(self):
-            super(MyViewer, self).createActions()
-            action = qt.QAction("&Plot", self)
-            action.setStatusTip("Plot PV")
-            action.triggered.connect(self.plotPv)
-            self._plotPvAction = action
-
-        def createMenus(self):
-            fileMenu = self.menuBar().addMenu("&File")
-            fileMenu.addAction(self._openAction)
-            fileMenu.addMenu(self._openRecentMenu)
-            fileMenu.addAction(self._closeAllAction)
-            fileMenu.addSeparator()
-            fileMenu.addAction(self._exitAction)
-            fileMenu.aboutToShow.connect(self._Viewer__updateFileMenu)
-
-            pvMenu = self.menuBar().addMenu("&Plot PV")
-            pvMenu.addAction(self._plotPvAction)
-
-            optionMenu = self.menuBar().addMenu("&Options")
-            optionMenu.addMenu(self._plotImageOrientationMenu)
-            optionMenu.addMenu(self._plotBackendMenu)
-            optionMenu.aboutToShow.connect(self._Viewer__updateOptionMenu)
-
-            viewMenu = self.menuBar().addMenu("&Views")
-            viewMenu.addAction(self._displayCustomNxdataWindow)
-
-            helpMenu = self.menuBar().addMenu("&Help")
-            helpMenu.addAction(self._aboutAction)
-            helpMenu.addAction(self._documentationAction)
-
-        def createApplicationContext(self, settings):
-            return MyApplicationContext(self, settings)
 
     window = MyViewer(parent=parent, settings=settings)
     window.setWindowTitle(window.windowTitle() + " [custom]")
