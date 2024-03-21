@@ -153,7 +153,7 @@ class PVPlotter(Plot2D):
     if desired.
     '''
 
-    def __init__(self, array_prefix, width_suffix="ArraySize0_RBV", 
+    def __init__(self, array_prefix, width_suffix="ArraySize0_RBV",
                  height_suffix="ArraySize1_RBV", *args, **kwargs):
         super(PVPlotter, self).__init__()
 
@@ -168,18 +168,18 @@ class PVPlotter(Plot2D):
 
         self.array_pv.add_callback(self.pv_replot)
         self.pv_replot(value=self.array_pv.value)
-        
+
         self.show()
 
     def create_pvs(self):
         '''
         Instantiate PV objects as class parameters.
         '''
-        
+
         self.array_pv = epics.PV(self.array_prefix+"ArrayData")
         self.width_pv = epics.PV(self.array_prefix+self.width_suffix)
         self.height_pv = epics.PV(self.array_prefix+self.height_suffix)
-        
+
         self.width_val = self.width_pv.value
         self.height_val = self.height_pv.value
 
@@ -326,20 +326,21 @@ def main(args):
     rest = sys.argv[:1] + unknown
 
     if args.prefix:
-        
+
         app = qt.QApplication([])
-        window = PVPlotter(array_prefix = args.prefix)
+        window = PVPlotter(array_prefix=args.prefix)
         window.show()
-        
+
         result = app.exec()
         # remove ending warnings relative to QTimer
         app.deleteLater()
-    
+
     else:
         # Monkey patch the main window creation
         silx_view_main.createWindow = createWindow
-        # Use the default launcher    
+        # Use the default launcher
         silx_view_main.main(rest)
+
 
 if __name__ == '__main__':
 
