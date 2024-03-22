@@ -242,7 +242,7 @@ class MyApplicationContext(ApplicationContext):
             toolBar.addAction(restore_action)
 
 
-class MyViewer(Viewer):
+class FileViewer(Viewer):
     """
     A simple silx viewer with the option to apply a transformation
     to the plot or plot a defined PV.
@@ -250,7 +250,7 @@ class MyViewer(Viewer):
 
     def __init__(self, array_prefix, width_suffix="ArraySize0_RBV",
                  height_suffix="ArraySize1_RBV", parent=None, settings=None):
-        super(MyViewer, self).__init__(parent=None, settings=None)
+        super(FileViewer, self).__init__(parent=None, settings=None)
 
         self.array_pv = array_prefix
         self.width_pv = width_suffix
@@ -263,7 +263,7 @@ class MyViewer(Viewer):
                                 height_suffix=self.height_pv)
 
     def createActions(self):
-        super(MyViewer, self).createActions()
+        super(FileViewer, self).createActions()
         action = qt.QAction("&Plot", self)
         action.setStatusTip("Plot PV")
         action.triggered.connect(self.plotPv)
@@ -299,14 +299,14 @@ class MyViewer(Viewer):
 
 def defCreateWindow(prefix, width, height):
     """Define and return a createWindow function with defined prefix,
-    height and width values for MyViewer.
+    height and width values for FileViewer.
 
     It will be called by mainQt.
     """
 
     def create_window(parent, settings):
 
-        window = MyViewer(array_prefix=prefix, width_suffix=width,
+        window = FileViewer(array_prefix=prefix, width_suffix=width,
                           height_suffix=height, parent=parent,
                           settings=settings)
         window.setWindowTitle(window.windowTitle() + " [custom]")
