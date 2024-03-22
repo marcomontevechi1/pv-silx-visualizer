@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
-import argparse
 import sys
-import numpy
-import yaml
 from os import path, environ
 from copy import deepcopy
-from sscPimega import pi450D
-
-from silx.gui.plot import Plot2D
-from silx.gui.plot.actions import PlotAction
-from silx.gui import qt
-import epics
 
 # Sometimes the following imports need to be local
 # to avoid early imports. In this application this wasnt needed
 # until now.
+from silx.gui.plot import Plot2D
+from silx.gui.plot.actions import PlotAction
+from silx.gui import qt
 from silx.app.view.Viewer import Viewer
 from silx.app.view.ApplicationContext import ApplicationContext
 from silx.app.view import main as silx_view_main
+import numpy
+import yaml
+import epics
+
+from sscPimega import pi450D
+
 
 VISUALIZER_PATH = path.dirname(path.realpath(__file__))
 
@@ -316,7 +316,7 @@ def defCreateWindow(prefix, width, height):
 
 
 def get_args(parser):
-    
+
     parser.add_argument("-p", "--prefix",
                         type=str,
                         help="ArrayData PV prefix to plot instead of file")
