@@ -3,14 +3,14 @@
 import argparse
 import sys
 import numpy
-from os import getenv, path
+import yaml
+from os import path, environ
 from copy import deepcopy
 from sscPimega import pi450D
 
 from silx.gui.plot import Plot2D
 from silx.gui.plot.actions import PlotAction
 from silx.gui import qt
-from dotenv import load_dotenv
 import epics
 
 # Sometimes the following imports need to be local
@@ -19,6 +19,8 @@ import epics
 from silx.app.view.Viewer import Viewer
 from silx.app.view.ApplicationContext import ApplicationContext
 from silx.app.view import main as silx_view_main
+
+VISUALIZER_PATH = path.dirname(path.realpath(__file__))
 
 
 def global_transform(data):
@@ -169,6 +171,7 @@ class PVPlotter(Plot2D):
         self.array_pv.add_callback(self.pv_replot)
         self.pv_replot(value=self.array_pv.value)
 
+        self.getKeepDataAspectRatioButton().keepDataAspectRatio()
         self.show()
 
     def create_pvs(self):
@@ -240,29 +243,24 @@ class MyApplicationContext(ApplicationContext):
 
 
 class MyViewer(Viewer):
+    """
+    A simple silx viewer with the option to apply a transformation
+    to the plot or plot a defined PV.
+    """
 
-    def __init__(self, parent=None, settings=None):
+    def __init__(self, array_prefix, width_suffix="ArraySize0_RBV",
+                 height_suffix="ArraySize1_RBV", parent=None, settings=None):
         super(MyViewer, self).__init__(parent=None, settings=None)
+
+        self.array_pv = array_prefix
+        self.width_pv = width_suffix
+        self.height_pv = height_suffix
 
     def plotPv(self):
 
-        load_dotenv()
-
-        if None in [getenv("EPICS_ARRAY_PV"),
-                    getenv("EPICS_ARRAY_WIDTH"),
-                    getenv("EPICS_ARRAY_HEIGHT")]:
-            msg = qt.QMessageBox()
-            msg_ = "Array PVs are misconfigured. Correct .env file or set the"
-            msg_ += " environment variables before running this application."
-            msg_ += " Desired variables are EPICS_ARRAY_PV, EPICS_ARRAY_WIDTH"
-            msg_ += " and EPICS_ARRAY_HEGHT."
-            msg.setText(msg_)
-            msg.setIcon(qt.QMessageBox.Critical)
-            msg.setWindowTitle("PVs not defined.")
-            msg.exec()
-            return
-
-        self.PvPlot = PVPlotter()
+        self.PvPlot = PVPlotter(array_prefix=self.array_pv,
+                                width_suffix=self.width_pv,
+                                height_suffix=self.height_pv)
 
     def createActions(self):
         super(MyViewer, self).createActions()
@@ -299,21 +297,105 @@ class MyViewer(Viewer):
         return MyApplicationContext(self, settings)
 
 
-def createWindow(parent, settings):
-    window = MyViewer(parent=parent, settings=settings)
-    window.setWindowTitle(window.windowTitle() + " [custom]")
-    return window
+def defCreateWindow(prefix, width, height):
+    """Define and return a createWindow function with defined prefix,
+    height and width values for MyViewer.
+
+    It will be called by mainQt.
+    """
+
+    def create_window(parent, settings):
+
+        window = MyViewer(array_prefix=prefix, width_suffix=width,
+                          height_suffix=height, parent=parent,
+                          settings=settings)
+        window.setWindowTitle(window.windowTitle() + " [custom]")
+        return window
+
+    return create_window
 
 
-def get_args():
-    parser = argparse.ArgumentParser(add_help=False)
-
-    parser.add_argument("--prefix",
-                        default=False,
+def get_args(parser):
+    
+    parser.add_argument("-p", "--prefix",
                         type=str,
                         help="ArrayData PV prefix to plot instead of file")
+    parser.add_argument("-w", "--width-suffix",
+                        type=str,
+                        default="ArraySize0_RBV",
+                        help="PV to get width from. (default ArraySize0_RBV)")
+    parser.add_argument("-a", "--height-suffix",
+                        type=str,
+                        default="ArraySize1_RBV",
+                        help="PV to get height from. (ArraySize1_RBV)")
+    parser.add_argument("-i", "--pv",
+                        action='store_true',
+                        default=False,
+                        help="Only plot pv, ignore file viewer")
 
-    return parser.parse_known_args()
+    return parser.parse_args()
+
+
+def silx_main(argv):
+    """
+    Override of silx_view_main.main to add arguments
+    Main function to launch the viewer as an application
+
+    :param argv: Command line arguments
+    :returns: exit status
+    """
+    parser = silx_view_main.createParser()
+    options = parser.parse_args(argv[1:])
+    silx_view_main.mainQt(options)
+
+
+def find_in_dict(prefix, width, height, dic, fail=False):
+    """tries to find prefix, width and height PV names
+    in dictionary. If not found and fail=True, fail"""
+
+    try:
+        if prefix is None:
+            prefix = dic["ARRAY_PREFIX"]
+        if width is None:
+            width = dic["WIDTH_SUFFIX"]
+        if height is None:
+            height = dic["HEIGHT_SUFFIX"]
+    except KeyError:
+        msg = "ARRAY_PREFIX, WIDTH_SUFFIX or HEIGHT_SUFFIX are not defined."
+        msg += " Please define it as an environment variable, in defaults.yml"
+        msg += " file or with --prefix, --width-suffix and --height-suffix"
+        msg += " options."
+        if fail:
+            raise Exception(msg)
+
+    return prefix, width, height
+
+
+def getPVS(args):
+    """
+    Get PVs to plot in PVPlotter.
+    If --prefix, --width-suffix or --height-suffix options are
+        used, use values defined in them.
+    If no options are used, try to load from file.
+    If no file is defined, try to get from env vars.
+    If no env vars are defined, exit and shout angrily at user. 
+    """
+
+    defaults_path = path.join(VISUALIZER_PATH, "defaults.yml")
+    prefix, width, height = args.prefix, args.width_suffix, args.height_suffix
+
+    if path.isfile(defaults_path):
+        with open(path.join(VISUALIZER_PATH, "defaults.yml"), "r") as file:
+            defaults = yaml.safe_load(file)
+
+        prefix, width, height = find_in_dict(prefix, width,
+                                             height, defaults)
+
+    prefix, width, height = find_in_dict(prefix, width,
+                                         height, environ,
+                                         fail=True)
+
+    return prefix, width, height
 
 
 def main(args):
@@ -322,13 +404,14 @@ def main(args):
     Passes rest of arguments to silx_view_main
     '''
 
-    args, unknown = get_args()
-    rest = sys.argv[:1] + unknown
+    parser = silx_view_main.createParser()
+    args = get_args(parser)
+    prefix, width, height = getPVS(args)
 
-    if args.prefix:
+    if args.pv:
 
         app = qt.QApplication([])
-        window = PVPlotter(array_prefix=args.prefix)
+        window = PVPlotter(prefix, width, height)
         window.show()
 
         result = app.exec()
@@ -337,9 +420,9 @@ def main(args):
 
     else:
         # Monkey patch the main window creation
-        silx_view_main.createWindow = createWindow
+        silx_view_main.createWindow = defCreateWindow(prefix, width, height)
         # Use the default launcher
-        silx_view_main.main(rest)
+        silx_main(sys.argv)
 
 
 if __name__ == '__main__':
