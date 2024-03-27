@@ -13,139 +13,35 @@ from silx.gui import qt
 from silx.app.view.Viewer import Viewer
 from silx.app.view.ApplicationContext import ApplicationContext
 from silx.app.view import main as silx_view_main
+import functools
 import numpy
 import yaml
 import epics
 
+from TransformToolButton import TransformToolButton
 from sscPimega import pi450D
 
 
 VISUALIZER_PATH = path.dirname(path.realpath(__file__))
 
 
-def global_transform(data):
-    data_out = deepcopy(data)
-    data_out = pi450D.view(data, -1)
+def recover(widget):
 
-    return data_out
-
-
-class RestoreActionFile(PlotAction):
-    '''
-    WIP: Action to use SSCPimega to restore 
-    image according with PiMega model.
-
-    Its still missing the actual usage of SSCPimega.
-    For now it just sums a value to each pixel of the image.
-    '''
-
-    def __init__(self, plot, parent=None):
-
-        restore = qt.QIcon(path.join(path.dirname(path.realpath(__file__)),
-                                     "./matrix.png"))
-
-        super(RestoreActionFile, self).__init__(
-            plot, icon=restore, text='Restore',
-            tooltip='Geometrically restore PiMega image',
-            triggered=self.__store_variable,
-            checkable=True, parent=parent)
-
-        self.restore = False
-        self.plot.prev_data = None
-        self.original_shape = None  # To check if image is already restored
-        self.plot.sigActiveImageChanged.connect(self.keep_coherence)
-
-    def keep_coherence(self):
-        '''
-        Make sure previous data keeps coherent
-        when different image is selected in file
-        '''
-
-        self.plot.sigActiveImageChanged.disconnect(self.keep_coherence)
-
-        activeImage = self.plot.getActiveImage()
-        if activeImage is not None and activeImage.getData().shape == self.original_shape:
-            self.plot.prev_data = activeImage.getData()
-
-            if self.restore:
-                new_data = global_transform(self.plot.prev_data)
-                if new_data is not None:
-                    activeImage.setData(new_data)
-
-        self.plot.sigActiveImageChanged.connect(self.keep_coherence)
-
-    def __store_variable(self, checked):
-        '''
-        Is the button clicked? If yes, restore each new image.
-
-        Variable to tell if its supposed to restore each new
-        image.
-        '''
-
-        self.plot.sigActiveImageChanged.disconnect(self.keep_coherence)
-
-        self.restore = checked
-        activeImage = self.plot.getActiveImage()
-
-        if self.original_shape is None:
-            self.original_shape = activeImage.getData().shape
-
-        if not checked:
-            if self.plot.prev_data is not None:
-                activeImage.setData(self.plot.prev_data)
-        else:
-            if activeImage is not None:
-                nowData = activeImage.getData()
-
-                if nowData.shape == self.original_shape:
-                    self.plot.prev_data = activeImage.getData()
-                    new_data = global_transform(self.plot.prev_data)
-                    activeImage.setData(new_data)
-
-        self.plot.sigActiveImageChanged.connect(self.keep_coherence)
+    activeImage = widget.getActiveImage()
+    if widget.raw_data is not None:
+        activeImage.setData(widget.raw_data)
 
 
-class RestoreActionPV(PlotAction):
-    '''
-    WIP: Action to use SSCPimega to restore 
-    image according with PiMega model.
+def do_transform(widget):
 
-    Its still missing the actual usage of SSCPimega.
-    For now it just sums a value to each pixel of the image.
-    '''
-
-    def __init__(self, plot, parent=None):
-
-        restore = qt.QIcon(path.join(path.dirname(path.realpath(__file__)),
-                                     "./matrix.png"))
-
-        super(RestoreActionPV, self).__init__(
-            plot, icon=restore, text='Restore',
-            tooltip='Geometrically restore PiMega image',
-            triggered=self.__store_variable,
-            checkable=True, parent=parent)
-
-        self.restore = False
-        self.prev_data = None
-
-    def __store_variable(self, checked):
-        '''
-        Is the button clicked? If yes, restore each new image.
-
-        Variable to tell if its supposed to restore each new
-        image.
-        '''
-        self.restore = checked
-        activeImage = self.plot.getActiveImage()
-
-        if not checked:
-            if self.plot.prev_data is not None:
-                self.plot.addImage(self.plot.prev_data)
-        else:
-            if activeImage is not None:
-                self.plot.prev_data = activeImage.getData()
-                new_data = global_transform(self.plot.prev_data)
-                self.plot.addImage(new_data)
+    if widget.transform:
+        activeImage = widget.getActiveImage()
+        if activeImage is not None:
+            widget.raw_data = activeImage.getData()
+            new_data = widget.transformation(widget.raw_data)
+            widget.sigActiveImageChanged.disconnect(widget.do_transform)
+            activeImage.setData(new_data)
+            widget.sigActiveImageChanged.connect(widget.do_transform)
 
 
 class PVPlotter(Plot2D):
@@ -162,11 +58,14 @@ class PVPlotter(Plot2D):
         self.array_prefix = array_prefix
         self.height_suffix = height_suffix
         self.width_suffix = width_suffix
+        self.raw_data = None
         self.create_pvs()
 
         self.setWindowTitle(self.array_pv.pvname)
-        self.action = RestoreActionPV(self, self)
-        self.profile.addAction(self.action)
+
+        self.recover = functools.partial(recover, self)
+        transform = TransformToolButton(self, self)
+        self.profile.addWidget(transform)
 
         self.array_pv.add_callback(self.pv_replot)
         self.pv_replot(value=self.array_pv.value)
@@ -179,7 +78,8 @@ class PVPlotter(Plot2D):
         Instantiate PV objects as class parameters.
         '''
 
-        self.array_pv = epics.PV(self.array_prefix+"ArrayData")
+        self.array_pv = epics.PV(
+            self.array_prefix+"ArrayData", auto_monitor=True)
         self.width_pv = epics.PV(self.array_prefix+self.width_suffix)
         self.height_pv = epics.PV(self.array_prefix+self.height_suffix)
 
@@ -203,6 +103,15 @@ class PVPlotter(Plot2D):
             self.height_val = value
         elif pvname == self.width_pv.pvname:
             self.width_val = value
+            
+    def do_transform(self):
+
+        if self.transform:
+            activeImage = self.getActiveImage()
+            if activeImage is not None:
+                self.raw_data = activeImage.getData()
+                new_data = self.transformation(self.raw_data)
+                self.addImage(new_data)
 
     def pv_replot(self, *args, **kwargs):
         '''
@@ -212,10 +121,9 @@ class PVPlotter(Plot2D):
 
             data = numpy.reshape(
                 kwargs["value"], (self.height_val, self.width_val))
-            self.prev_data = data
+            self.raw_data = data
 
-            if self.action.restore:
-                data = global_transform(data)
+            data = self.transformation(data)
 
             self.addImage(data)
 
@@ -225,6 +133,7 @@ class MyApplicationContext(ApplicationContext):
 
     def __init__(self, parent, settings=None):
         super(MyApplicationContext, self).__init__(parent, settings)
+        self.parent = parent
 
     def findPrintToolBar(self, plot):
         # FIXME: It would be better to use the Qt API
@@ -238,8 +147,13 @@ class MyApplicationContext(ApplicationContext):
         from silx.gui.plot import Plot2D
         if isinstance(widget, Plot2D):
             toolBar = self.findPrintToolBar(widget)
-            restore_action = RestoreActionFile(widget, widget)
-            toolBar.addAction(restore_action)
+            widget.raw_data = None
+            widget.recover = functools.partial(recover, widget)
+            widget.do_transform = functools.partial(do_transform, widget)
+            transform = TransformToolButton(widget, widget)
+            toolBar.addWidget(transform)
+            self.parent.plot = widget
+            self.parent.connect_plot_signal()
 
 
 class FileViewer(Viewer):
@@ -255,6 +169,9 @@ class FileViewer(Viewer):
         self.array_pv = array_prefix
         self.width_pv = width_suffix
         self.height_pv = height_suffix
+
+    def connect_plot_signal(self):
+        self.plot.sigActiveImageChanged.connect(self.plot.do_transform)
 
     def plotPv(self):
 
@@ -307,8 +224,8 @@ def defCreateWindow(prefix, width, height):
     def create_window(parent, settings):
 
         window = FileViewer(array_prefix=prefix, width_suffix=width,
-                          height_suffix=height, parent=parent,
-                          settings=settings)
+                            height_suffix=height, parent=parent,
+                            settings=settings)
         window.setWindowTitle(window.windowTitle() + " [custom]")
         return window
 
