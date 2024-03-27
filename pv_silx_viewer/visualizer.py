@@ -3,6 +3,7 @@
 import sys
 from os import path, environ
 from copy import deepcopy
+import functools
 
 # Sometimes the following imports need to be local
 # to avoid early imports. In this application this wasnt needed
@@ -13,7 +14,6 @@ from silx.gui import qt
 from silx.app.view.Viewer import Viewer
 from silx.app.view.ApplicationContext import ApplicationContext
 from silx.app.view import main as silx_view_main
-import functools
 import numpy
 import yaml
 import epics
@@ -26,6 +26,9 @@ VISUALIZER_PATH = path.dirname(path.realpath(__file__))
 
 
 def recover(widget):
+    """
+    Sets image to the raw value.
+    """
 
     activeImage = widget.getActiveImage()
     if widget.raw_data is not None:
@@ -33,6 +36,12 @@ def recover(widget):
 
 
 def do_transform(widget):
+    """
+    Transform image according to transformation defined by
+    TransformToolButton.
+
+    Disconnects from signal to avoid recursive self-calling.
+    """
 
     if widget.transform:
         activeImage = widget.getActiveImage()
@@ -103,8 +112,16 @@ class PVPlotter(Plot2D):
             self.height_val = value
         elif pvname == self.width_pv.pvname:
             self.width_val = value
-            
+
     def do_transform(self):
+        """
+        Transform image according to transformation defined
+        by TransformToolButton.
+
+        Is supposed to be called only when TransformToolButton
+        is pressed. Other than that, pv_replot is responsible for
+        transforming image before plotting.
+        """
 
         if self.transform:
             activeImage = self.getActiveImage()
@@ -116,6 +133,10 @@ class PVPlotter(Plot2D):
     def pv_replot(self, *args, **kwargs):
         '''
         Upon new PV value, redo plot.
+
+        Also responsible for transforming array before
+        plotting because if plot before transforming,
+        visualization effect is terrible.
         '''
         if kwargs["value"] is not None:
 
@@ -143,12 +164,17 @@ class MyApplicationContext(ApplicationContext):
         """Called when the widget of the view was created.
 
         So we can custom it.
+
+        For some bad reason this seems to be the standard 
+        way offered by the framework to custom the widget.
         """
         from silx.gui.plot import Plot2D
         if isinstance(widget, Plot2D):
             toolBar = self.findPrintToolBar(widget)
-            widget.raw_data = None
+            widget.raw_data = None  # Needed to keep transformation coherence
+            # Needed to keep transformation coherence
             widget.recover = functools.partial(recover, widget)
+            # Needed to keep transformation coherence
             widget.do_transform = functools.partial(do_transform, widget)
             transform = TransformToolButton(widget, widget)
             toolBar.addWidget(transform)
@@ -171,15 +197,25 @@ class FileViewer(Viewer):
         self.height_pv = height_suffix
 
     def connect_plot_signal(self):
+        """
+        Must be defined here but only called by viewWidgetCreated()
+        because silx customization framework is this weird...
+        """
         self.plot.sigActiveImageChanged.connect(self.plot.do_transform)
 
     def plotPv(self):
+        """
+        Spawn PVPlotter
+        """
 
         self.PvPlot = PVPlotter(array_prefix=self.array_pv,
                                 width_suffix=self.width_pv,
                                 height_suffix=self.height_pv)
 
     def createActions(self):
+        """
+        Add button to call plotPV method
+        """
         super(FileViewer, self).createActions()
         action = qt.QAction("&Plot", self)
         action.setStatusTip("Plot PV")
@@ -187,6 +223,11 @@ class FileViewer(Viewer):
         self._plotPvAction = action
 
     def createMenus(self):
+        """
+        Create basic menus.
+
+        Maybe can just be a super(FileViewer, self).createMenus() ?
+        """
         fileMenu = self.menuBar().addMenu("&File")
         fileMenu.addAction(self._openAction)
         fileMenu.addMenu(self._openRecentMenu)
