@@ -8,4 +8,5 @@ __version__ = "0.1.0"
 __author__ = 'Marco A. B. Montevechi Filho'
 __credits__ = 'CNPEM'
 
+from .TransformToolButton import *
 from .visualizer import *
