@@ -6,9 +6,15 @@ from copy import deepcopy
 from silx.gui.plot.PlotToolButtons import PlotToolButton
 from silx.gui import qt
 
-from sscPimega import pi450D
+from sscPimega import pi450D, pi540D
 
 TRANSFORM_BUTTON_PATH = path.dirname(path.realpath(__file__))
+
+def pimega540DTrans(data):
+    data_out = deepcopy(data)
+    data_out = pi540D.view540D(data)
+
+    return data_out
 
 def pimega450DTrans(data):
     data_out = deepcopy(data)
@@ -89,7 +95,12 @@ class TransformToolButton(PlotToolButton):
                 plot.transform = True
                 plot.transformation = pimega450DTrans
                 plot.do_transform()
-                
+
+            elif model == "540D":
+                plot.transform = True
+                plot.transformation = pimega540DTrans
+                plot.do_transform()
+
             elif model == "None":
                 plot.transform = False
                 plot.transformation = noTrans
