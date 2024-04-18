@@ -4,7 +4,9 @@ This is an attempt to make a generic visualizer both for PV arrays and files whe
 
 I tried to make it pip-installable but still recommend using the ./pv_silx_viewer/visualizer.py file directly. For some reason, importing it into your script and doing pv_silx_viewer.main(sys.argv) segfaults in application exit.
 
-You can use the ./environment.yml file to create a micromamba environment with all its dependencies.
+You can use the ./environment.yml file to create a micromamba environment with all its dependencies. Honestly, its easier than installing it via pip.
+
+For a better deploy, maybe check the comments in example_init.sh about plotting either PVs or Files by default.
 
 ## Visualizing a file:
 
